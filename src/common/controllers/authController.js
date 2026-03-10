@@ -4,6 +4,10 @@ const crypto = require("crypto");
 const { isEmpty } = require("../services/isEmpty");
 const userModel = require("../models/user");
 const { Op } = require("sequelize");
+const { isValidCellphoneNumber } = require("../services/numberValidation");
+const sequelize = require("../../config/database");
+const fs = require("fs");
+const path = require("path");
 
 exports.generateOtp = async (req, res) => {
   const { number } = req.body;
@@ -15,11 +19,23 @@ exports.generateOtp = async (req, res) => {
     });
   }
 
+  if (!isValidCellphoneNumber(number)) {
+    return res.status(400).json({
+      message:
+        "Oops! That don't look like a valid cellphone number. Please check and try again.",
+    });
+  }
+
+  const transaction = await sequelize.transaction();
+
   try {
-    const existingOtp = await OtpModel.findOne({ where: { number } });
+    const existingOtp = await OtpModel.findOne({
+      where: { number },
+      transaction,
+    });
 
     if (existingOtp) {
-      await OtpModel.destroy({ where: { number } });
+      await existingOtp.destroy({ transaction });
     }
 
     const otpCode = Math.floor(1000 + Math.random() * 9000).toString();
@@ -27,21 +43,29 @@ exports.generateOtp = async (req, res) => {
 
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
-    await OtpModel.create({
-      number,
-      otp: hashedOtp,
-      expiresAt,
-    });
+    await OtpModel.create(
+      {
+        number,
+        otp: hashedOtp,
+        expiresAt,
+      },
+      { transaction },
+    );
+
+    await transaction.commit();
 
     res.status(200).json({
       status: "SUCCESS",
-      message: `OTP successfully generated and sent successfully to ${number}`,
+      message: `OTP successfully generated and sent successfully to +${number}`,
       data: {
         otp: otpCode,
       },
     });
   } catch (error) {
+    await transaction.rollback();
+
     console.error("Error generating OTP:", error);
+
     res.status(500).json({
       status: "FAILED",
       message:
@@ -52,27 +76,40 @@ exports.generateOtp = async (req, res) => {
 
 exports.validateOtp = async (req, res) => {
   const { number, otp } = req.body;
-
-  try {
-    if (!number || isEmpty(number)) {
-      return res.status(400).json({
+  if (!number || isEmpty(number)) {
+    return res
+      .status(400)
+      .json({
         status: "FAILED",
         message: "Oops! We need your cellphone number to proceed.",
       });
-    }
-
-    if (!otp || isEmpty(otp)) {
-      return res.status(400).json({
+  }
+  if (!isValidCellphoneNumber(number)) {
+    return res
+      .status(400)
+      .json({
+        message:
+          "Oops! That don't look like a valid cellphone number. Please check and try again.",
+      });
+  }
+  if (!otp || isEmpty(otp)) {
+    return res
+      .status(400)
+      .json({
         status: "FAILED",
         message: "Oops! We need your OTP to proceed.",
       });
-    }
+  }
+  const transaction = await sequelize.transaction();
 
+  try {
     const otpRecord = await OtpModel.findOne({
       where: { number },
+      transaction,
     });
 
     if (!otpRecord) {
+      await transaction.rollback();
       return res.status(400).json({
         status: "FAILED",
         message: "Invalid verification code. Please check and re-enter.",
@@ -82,6 +119,7 @@ exports.validateOtp = async (req, res) => {
     const hashedOtp = crypto.createHash("sha256").update(otp).digest("hex");
 
     if (otpRecord.otp !== hashedOtp) {
+      await transaction.rollback();
       return res.status(400).json({
         status: "FAILED",
         message: "Invalid verification code. Please check and re-enter.",
@@ -89,20 +127,46 @@ exports.validateOtp = async (req, res) => {
     }
 
     if (new Date() > new Date(otpRecord.expiresAt)) {
+      await transaction.rollback();
       return res.status(400).json({
         status: "FAILED",
         message: "This one-time password has expired. Please resend.",
       });
     }
 
-    await otpRecord.destroy({ where: { identifier } });
+    await otpRecord.destroy({ transaction });
+
+    const user = await userModel.findOne({
+      where: {
+        cellPhoneNumber: number,
+        isCellphoneNumberVerified: true,
+      },
+      transaction,
+    });
+
+    await transaction.commit();
+
+    if (user) {
+      return res.status(200).json({
+        status: "SUCCESS",
+        existingUser: true,
+        message: "OTP verified successfully. Welcome back!",
+        data: {
+          user: { ...user.toJSON(), password: undefined },
+        },
+      });
+    }
 
     res.status(200).json({
       status: "SUCCESS",
       message: "OTP verified successfully",
+      existingUser: false,
     });
   } catch (error) {
+    await transaction.rollback();
+
     console.error("Error validating otp:", error);
+
     res.status(500).json({
       status: "FAILED",
       message:
@@ -112,19 +176,32 @@ exports.validateOtp = async (req, res) => {
   }
 };
 
-exports.register = async (req, res) => {
+exports.registerCarrier = async (req, res) => {
   const { fullName, email, password, cellPhoneNumber, diskExpiryDate, role } =
     req.body;
-     let profileImagePath = files.profileImage
-    ? files.profileImage[0].filename
+  const files = req.files;
+  let profileImage = files.profileImage ? files.profileImage[0].filename : null;
+
+  let drivingLicenseFront = files.drivingLicenseFront
+    ? files.drivingLicenseFront[0].filename
     : null;
 
-  let idDocumentFront = files.idDocumentFront
-    ? files.idDocumentFront[0].filename
+  let drivingLicenseBack = files.drivingLicenseBack
+    ? files.drivingLicenseBack[0].filename
     : null;
 
-  let idDocumentBack = files.idDocumentBack
-    ? files.idDocumentBack[0].filename
+  let diskImage = files.diskImage ? files.diskImage[0].filename : null;
+
+  let vehicleFrontImage = files.vehicleFrontImage
+    ? files.vehicleFrontImage[0].filename
+    : null;
+
+  let vehicleBackImage = files.vehicleBackImage
+    ? files.vehicleBackImage[0].filename
+    : null;
+
+  let vehicleRearImage = files.vehicleRearImage
+    ? files.vehicleRearImage[0].filename
     : null;
   if (!fullName || isEmpty(fullName)) {
     return res.status(400).json({
@@ -156,46 +233,82 @@ exports.register = async (req, res) => {
       message: "Oops! We need your role to proceed.",
     });
   }
+   const filesToCleanup = [];
+   [profileImage, drivingLicenseFront, drivingLicenseBack, diskImage, vehicleFrontImage, vehicleBackImage, vehicleRearImage]
+      .forEach(f => f && filesToCleanup.push(path.join("uploads/registration", f)));
+
+  const transaction = await sequelize.transaction();
 
   try {
     const existingUser = await userModel.findOne({
       where: {
         [Op.or]: [
           { email },
-          { cellPhoneNumber: identifier },
+          { cellPhoneNumber },
           { VerifiedCellPhoneNumber: cellPhoneNumber },
         ],
       },
+      transaction,
     });
 
     if (existingUser) {
+      await transaction.rollback();
+
+      filesToCleanup.forEach(filePath => {
+        fs.unlink(filePath, err => {
+          if (err) console.warn("Failed to delete file:", filePath, err.message);
+        });
+      });
+
       return res.status(400).json({
         status: "FAILED",
         message:
-          "A user with this email already exists. Please use a different email.",
+          "An account associated with this details already exists. Please sign in or use different details to register.",
       });
     }
 
     const salt = await bcrypt.genSalt(12);
     const hashedPassword = await bcrypt.hash(password, salt);
-    const newUser = await userModel.create({
-      fullName,
-      email,
-      password: hashedPassword,
-      cellPhoneNumber,
-      VerifiedCellPhoneNumber: cellPhoneNumber,
-      role,
-    });
+
+    const newUser = await userModel.create(
+      {
+        fullName,
+        email,
+        password: hashedPassword,
+        cellPhoneNumber,
+        VerifiedCellPhoneNumber: cellPhoneNumber,
+        profileImage,
+        drivingLicenseFront,
+        drivingLicenseBack,
+        diskImage,
+        vehicleFrontImage,
+        vehicleBackImage,
+        vehicleRearImage,
+        isCellphoneNumberVerified: true,
+        diskExpiryDate,
+        role,
+      },
+      { transaction },
+    );
+
+    await transaction.commit();
 
     const { password: _, ...userData } = newUser.toJSON();
 
     res.status(201).json({
       status: "SUCCESS",
-      message: "User registered successfully",
+      message: "Your account has been registered successfully. Welcome!",
       data: userData,
     });
   } catch (error) {
-    console.error("Error validating otp:", error);
+    await transaction.rollback();
+    filesToCleanup.forEach(filePath => {
+      fs.unlink(filePath, err => {
+        if (err) console.warn("Failed to delete file:", filePath, err.message);
+      });
+    });
+    console.error("Error registering carrier:", error);
+
     res.status(500).json({
       status: "FAILED",
       message:

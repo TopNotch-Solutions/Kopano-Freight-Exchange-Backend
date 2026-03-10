@@ -24,7 +24,11 @@ const userModel = sequelize.define('User', {
         type: DataTypes.STRING,
         allowNull: true
     },
-    drivingLicense: {
+    drivingLicenseFront: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    drivingLicenseBack: {
         type: DataTypes.STRING,
         allowNull: true
     },
@@ -55,6 +59,14 @@ const userModel = sequelize.define('User', {
      VerifiedCellPhoneNumber: {
         type: DataTypes.STRING,
         allowNull: false
+    },
+    isAccountVerified: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false
+    },
+    isCellphoneNumberVerified: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false
     },
     role: {
         type: DataTypes.ENUM('shipper', 'carrier', 'admin', "user"),

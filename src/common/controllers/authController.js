@@ -2,12 +2,13 @@ const OtpModel = require("../models/otp");
 const bcrypt = require("bcrypt");
 const crypto = require("crypto");
 const { isEmpty } = require("../services/isEmpty");
-const userModel = require("../models/user");
+const userModel = require("../models/carrier");
 const { Op } = require("sequelize");
 const { isValidCellphoneNumber } = require("../services/numberValidation");
 const sequelize = require("../../config/database");
 const fs = require("fs");
 const path = require("path");
+const shipperModel = require("../models/shipper");
 
 exports.generateOtp = async (req, res) => {
   const { number } = req.body;
@@ -156,8 +157,24 @@ exports.validateOtp = async (req, res) => {
         },
       });
     }
+    const shipper = await shipperModel.findOne({
+      where: {
+        cellPhoneNumber: number,
+        isCellphoneNumberVerified: true,
+      }
+    });
 
-    res.status(200).json({
+      if (shipper) {
+        return res.status(200).json({
+          status: "SUCCESS",
+          existingUser: true,
+          message: "OTP verified successfully. Welcome back!",
+          data: {
+            user: { ...shipper.toJSON(), password: undefined },
+          },
+        });
+      }
+    return res.status(200).json({
       status: "SUCCESS",
       message: "OTP verified successfully",
       existingUser: false,
@@ -177,7 +194,7 @@ exports.validateOtp = async (req, res) => {
 };
 
 exports.registerCarrier = async (req, res) => {
-  const { fullName, email, password, cellPhoneNumber, diskExpiryDate, role } =
+  const { fullName, email, password, cellPhoneNumber, diskExpiryDate} =
     req.body;
   const files = req.files;
   let profileImage = files.profileImage ? files.profileImage[0].filename : null;
@@ -225,12 +242,6 @@ exports.registerCarrier = async (req, res) => {
     return res.status(400).json({
       status: "FAILED",
       message: "Oops! We need your password to proceed.",
-    });
-  }
-  if (!role || isEmpty(role)) {
-    return res.status(400).json({
-      status: "FAILED",
-      message: "Oops! We need your role to proceed.",
     });
   }
    const filesToCleanup = [];
@@ -286,7 +297,7 @@ exports.registerCarrier = async (req, res) => {
         vehicleRearImage,
         isCellphoneNumberVerified: true,
         diskExpiryDate,
-        role,
+        role:"carrier",
       },
       { transaction },
     );
@@ -310,6 +321,180 @@ exports.registerCarrier = async (req, res) => {
     console.error("Error registering carrier:", error);
 
     res.status(500).json({
+      status: "FAILED",
+      message:
+        "We are unable to process your request at the moment. Please try again.",
+      error: error.message,
+    });
+  }
+};
+
+
+exports.registerShipper = async (req, res) => {
+  const { businessName, registrationNumber, dateOfIncorporation, entity, password, cellPhoneNumber, industry } =
+    req.body;
+  const files = req.files || {};
+
+  let companyLogo = files.companyLogo && files.companyLogo[0]
+    ? files.companyLogo[0].filename
+    : null;
+
+  let taxRegistrationPDF = files.taxRegistrationPDF && files.taxRegistrationPDF[0]
+    ? files.taxRegistrationPDF[0].filename
+    : null;
+  if (!businessName || isEmpty(businessName)) {
+    return res.status(400).json({
+      status: "FAILED",
+      message: "Oops! We need your business name to proceed.",
+    });
+  }
+  if (!registrationNumber || isEmpty(registrationNumber)) {
+    return res.status(400).json({
+      status: "FAILED",
+      message: "Oops! We need your registration number to proceed.",
+    });
+  }
+  if (!dateOfIncorporation || isEmpty(dateOfIncorporation)) {
+    return res.status(400).json({
+      status: "FAILED",
+      message: "Oops! We need your date of incorporation to proceed.",
+    });
+  }
+  if (!entity || isEmpty(entity)) {
+    return res.status(400).json({
+      status: "FAILED",
+      message: "Oops! We need your entity to proceed.",
+    });
+  }
+  if (!password || isEmpty(password)) {
+    return res.status(400).json({
+      status: "FAILED",
+      message: "Oops! We need your password to proceed.",
+    });
+  }
+  if (!industry || isEmpty(industry)) {
+    return res.status(400).json({
+      status: "FAILED",
+      message: "Oops! We need your industry to proceed.",
+    });
+  }
+   const filesToCleanup = [];
+   [companyLogo, taxRegistrationPDF]
+      .forEach(f => f && filesToCleanup.push(path.join("uploads/registration", f)));
+
+  const transaction = await sequelize.transaction();
+  try{
+    const existingUser = await shipperModel.findOne({
+      where: {
+        [Op.or]: [
+          { registrationNumber },
+          { cellPhoneNumber },
+          { VerifiedCellPhoneNumber: cellPhoneNumber },
+        ],
+      },
+      transaction,
+    });
+
+    if (existingUser) {
+      await transaction.rollback();
+
+      filesToCleanup.forEach(filePath => {
+        fs.unlink(filePath, err => {
+          if (err) console.warn("Failed to delete file:", filePath, err.message);
+        });
+      });
+
+      return res.status(400).json({
+        status: "FAILED",
+        message:
+          "An account associated with this details already exists. Please sign in or use different details to register.",
+      });
+    }
+
+    const salt = await bcrypt.genSalt(12);
+    const hashedPassword = await bcrypt.hash(password, salt);
+    const newUser = await shipperModel.create(
+      {
+        businessName,
+        registrationNumber,
+        dateOfIncorporation,
+        entity,
+        password: hashedPassword,
+        cellPhoneNumber,
+        VerifiedCellPhoneNumber: cellPhoneNumber,
+        companyLogo,
+        industry,
+        taxRegistrationPDF,
+        isCellphoneNumberVerified: true,
+        role:"shipper",
+      },
+      { transaction },
+    );
+    await transaction.commit();
+
+    const { password: _, ...userData } = newUser.toJSON();
+    res.status(201).json({
+      status: "SUCCESS",
+      message: "Your account has been registered successfully. Welcome!",
+      data: userData,
+    });
+
+  }catch (error) {
+    await transaction.rollback();
+    filesToCleanup.forEach(filePath => {
+      fs.unlink(filePath, err => {
+        if (err) console.warn("Failed to delete file:", filePath, err.message);
+      });
+    });
+    console.error("Error registering carrier:", error);
+
+    res.status(500).json({
+      status: "FAILED",
+      message:
+        "We are unable to process your request at the moment. Please try again.",
+      error: error.message,
+    });
+  }
+}
+
+exports.userDetails = async (req, res) => {
+  const { userId } = req.params;
+  const { role } = req.query;
+
+  try {
+    let model;
+
+    if (role === "carrier") {
+      model = userModel;
+    } else if (role === "shipper") {
+      model = shipperModel;
+    } else {
+      return res.status(400).json({
+        status: "FAILED",
+        message: "Invalid role provided.",
+      });
+    }
+
+    const user = await model.findByPk(userId, {
+      attributes: { exclude: ["password"] },
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        status: "FAILED",
+        message: "User not found.",
+      });
+    }
+
+    return res.status(200).json({
+      status: "SUCCESS",
+      data: user,
+    });
+
+  } catch (error) {
+    console.error("Error fetching user details:", error);
+
+    return res.status(500).json({
       status: "FAILED",
       message:
         "We are unable to process your request at the moment. Please try again.",

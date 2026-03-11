@@ -33,8 +33,12 @@ app.use(
 
 const authRoute = require("./src/common/routes/authRoute");
 
+const loadRoute = require("./src/shipper/routes/loadRoute");
+
 
 app.use("/api/auth", authRoute);
+
+app.use("/api/loads", loadRoute);
 
 sequelize
   .sync()

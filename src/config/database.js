@@ -7,6 +7,14 @@ const sequelize = new Sequelize({
     password: process.env.DB_PASSWORD,
     database: process.env.DB,
     dialect: 'mysql',
+     dialectOptions: {
+        charset: 'utf8mb4'
+    },
+
+    define: {
+        charset: 'utf8mb4',
+        collate: 'utf8mb4_unicode_ci'
+    },
     pool: {
         max: 30,
         min: 0,

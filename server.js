@@ -31,12 +31,16 @@ app.use(
   })
 );
 
+const notificationRoute = require("./src/common/routes/notificationRoute");
 const authRoute = require("./src/common/routes/authRoute");
-
 const loadRoute = require("./src/shipper/routes/loadRoute");
+const loadAssignmentRoute = require("./src/carrier/routes/loadRoute");
 
+
+app.use("/api/notifications", notificationRoute);
 
 app.use("/api/auth", authRoute);
+app.use("/api/load-assignments", loadAssignmentRoute);
 
 app.use("/api/loads", loadRoute);
 

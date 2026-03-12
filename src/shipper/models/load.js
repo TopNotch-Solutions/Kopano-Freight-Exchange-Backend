@@ -18,7 +18,6 @@ const loadModel = sequelize.define('Load', {
     pickupLocation: {
         type: DataTypes.STRING,
         allowNull: false,
-        unique: true
     },
     dropoffLocation: {
         type: DataTypes.STRING,

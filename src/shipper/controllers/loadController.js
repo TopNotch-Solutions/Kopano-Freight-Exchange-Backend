@@ -113,6 +113,7 @@ exports.create = async (req, res) => {
       where: {
         pickupLocation,
         dropoffLocation,
+        shipperId,
         status: {
           [Op.in]: ["open", "assigned"],
         },

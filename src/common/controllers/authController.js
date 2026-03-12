@@ -366,6 +366,18 @@ exports.updateCarrierDetails = async (req, res) => {
       message: "Cellphone number cannot be empty.",
     });
   }
+  if (!isValidCellphoneNumber(cellPhoneNumber)) {
+    return res.status(400).json({
+      status: "FAILED",
+      message: "Invalid cellphone number format.",
+    });
+  }
+  if (!diskExpiryDate || isEmpty(diskExpiryDate)) {
+    return res.status(400).json({
+      status: "FAILED",
+      message: "Disk expiry date cannot be empty.",
+    });
+  }
 
   const transaction = await sequelize.transaction();
 
@@ -733,15 +745,28 @@ exports.updateShipperDetails = async (req, res) => {
       });
     }
 
-    // Check for duplicate registrationNumber or phone (excluding current user)
+    const duplicateConditions = [
+    ];
+
+    if (cellPhoneNumber !== shipper.cellPhoneNumber) {
+      console.log("Checking for duplicate cellphone number:", cellPhoneNumber);
+      duplicateConditions.push(
+        { cellPhoneNumber },
+        { VerifiedCellPhoneNumber: cellPhoneNumber }
+      );
+      console.log("Duplicate conditions for cellphone number:", duplicateConditions);
+    }
+
+    if(registrationNumber !== shipper.registrationNumber) {
+      console.log("Checking for duplicate registration number:", registrationNumber);
+      duplicateConditions.push({ registrationNumber });
+      console.log("Duplicate conditions for registration number:", duplicateConditions);
+      }
+
     const existingUser = await shipperModel.findOne({
       where: {
         id: { [Op.ne]: id },
-        [Op.or]: [
-          { registrationNumber },
-          { cellPhoneNumber },
-          { VerifiedCellPhoneNumber: cellPhoneNumber },
-        ],
+        [Op.or]: duplicateConditions,
       },
       transaction,
     });
@@ -765,11 +790,20 @@ exports.updateShipperDetails = async (req, res) => {
         cellPhoneNumber,
         VerifiedCellPhoneNumber: cellPhoneNumber,
         industry,
+        isAccountVerified: false
       },
       { where: { id }, transaction }
     );
 
     await transaction.commit();
+    await NotificationModel.create({
+      userId: id,
+      userType: "shipper",
+      title: "Profile information updated",
+      message:
+        "Your profile information has been updated. Please note that your account will be re-verified by our team to ensure the accuracy of the new details.",
+      type: "system",
+    });
 
     const updatedShipper = await shipperModel.findByPk(id, {
       attributes: { exclude: ["password"] },
@@ -854,6 +888,14 @@ exports.updateShipperFiles = async (req, res) => {
     });
 
     await transaction.commit();
+    await NotificationModel.create({
+      userId: id,
+      userType: "shipper",
+      title: "Profile information updated",
+      message:
+        "Your profile information has been updated. Please note that your account will be re-verified by our team to ensure the accuracy of the new details.",
+      type: "system",
+    });
 
     const updatedShipper = await shipperModel.findByPk(id, {
       attributes: { exclude: ['password'] },
@@ -880,7 +922,7 @@ exports.updateShipperFiles = async (req, res) => {
 exports.userDetails = async (req, res) => {
   const { userId } = req.params;
   const { role } = req.query;
-
+  console.log("Fetching details for userId:", userId, "with role:", role);
   try {
     let model;
 

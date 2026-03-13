@@ -189,7 +189,10 @@ exports.allUserLoads = async (req, res) => {
     const loads = await loadModel.findAll({
         where: {
             shipperId
-        }
+        },
+        order: [
+        ['createdAt', 'DESC']  // newest first
+    ]
     });
     return res.status(200).json({
       status: "SUCCESS",
@@ -234,7 +237,7 @@ exports.allUserLoadsActive = async (req, res) => {
               status: {
                 [Op.in]: ["open", "assigned", "in_transit"],
               },
-        }
+        },
     });
     return res.status(200).json({
       status: "SUCCESS",

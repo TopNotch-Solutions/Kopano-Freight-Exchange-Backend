@@ -8,7 +8,6 @@ const { Op } = require("sequelize");
 require("dotenv").config();
 const { Server } = require("socket.io");
 
-
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -36,9 +35,15 @@ const authRoute = require("./src/common/routes/authRoute");
 const loadRoute = require("./src/shipper/routes/loadRoute");
 const loadAssignmentRoute = require("./src/carrier/routes/loadRoute");
 
+io.on("connection", (socket) => {
+  console.log("Socket connected:", socket.id);
+
+  socket.on("disconnect", () => {
+    console.log("Socket disconnected:", socket.id);
+  });
+});
 
 app.use("/api/notifications", notificationRoute);
-
 app.use("/api/auth", authRoute);
 app.use("/api/load-assignments", loadAssignmentRoute);
 

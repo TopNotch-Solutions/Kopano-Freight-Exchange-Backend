@@ -11,7 +11,10 @@ exports.allUserLoads = async (req, res) => {
     const loads = await loadModel.findAll({
         where: {
             status: "open"
-        }
+        },
+        order: [
+        ['createdAt', 'DESC']
+      ]
     });
     return res.status(200).json({
       status: "SUCCESS",
@@ -45,6 +48,9 @@ exports.allUserLoadsPerPickUpLocation = async (req, res) => {
         pickUpLocation,
         status: "open"
       },
+      order: [
+        ['createdAt', 'DESC']
+      ]
     });
     return res.status(200).json({
       status: "SUCCESS",
@@ -337,7 +343,9 @@ exports.allAcepted = async (req, res) => {
         const loads = await loadModel.findAll({
             where: {
                 id: loadIds
-            }
+            },order: [
+        ['createdAt', 'DESC']
+      ]
         });
         return res.status(200).json({
             status: "SUCCESS",
@@ -397,13 +405,13 @@ exports.loadDeclean = async (req, res) => {
 
     loads.status = "open";
     await loads.save();
-        await loadAssignmentModel.destroy(
-        {
-            where: {
-                loadId
-            }
+    await loadAssignmentModel.destroy(
+      {
+        where: {
+          loadId,
         },
-        { transaction },
+      },
+      { transaction },
     );
     await NotificationModel.create(
         {

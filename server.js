@@ -21,7 +21,7 @@ const io = new Server(server, {
 app.use(express.json({ limit: "100mb" }));
 app.use(express.urlencoded({ limit: "100mb", extended: true }));
 app.use(cookieParser());
-app.use(express.static("public"));
+app.use(express.static("uploads"));
 app.use(
   cors({
     origin: ["http://localhost:3000"],

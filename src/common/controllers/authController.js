@@ -55,7 +55,7 @@ exports.generateOtp = async (req, res) => {
     );
 
     await transaction.commit();
-
+    console.log(`Generated OTP for ${number}: ${otpCode}`);
     res.status(200).json({
       status: "SUCCESS",
       message: `OTP successfully generated and sent successfully to +${number}`,

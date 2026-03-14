@@ -418,8 +418,8 @@ exports.updateCarrierDetails = async (req, res) => {
         fullName,
         email,
         cellPhoneNumber,
-        VerifiedCellPhoneNumber: cellPhoneNumber,
         diskExpiryDate,
+        isAccountVerified: false
       },
       {
         where: { id },
@@ -511,6 +511,12 @@ exports.updateCarrierFiles = async (req, res) => {
     }
 
     await userModel.update(updateData, {
+      where: { id },
+      transaction,
+    });
+    await userModel.update({
+      isAccountVerified: false
+    }, {
       where: { id },
       transaction,
     });
@@ -883,6 +889,12 @@ exports.updateShipperFiles = async (req, res) => {
 
     // Apply updates
     await shipperModel.update(updateData, {
+      where: { id },
+      transaction,
+    });
+    await shipperModel.update({
+      isAccountVerified: false
+    }, {
       where: { id },
       transaction,
     });

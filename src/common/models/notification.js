@@ -11,6 +11,10 @@ const NotificationModel = sequelize.define('Notification', {
         type: DataTypes.INTEGER,
         allowNull: false
     },
+    userType: {
+        type: DataTypes.ENUM('carrier', 'shipper'),
+        allowNull: false
+    },
     title: {
         type: DataTypes.STRING(150),
         allowNull: false
@@ -26,7 +30,8 @@ const NotificationModel = sequelize.define('Notification', {
             'load',
             'payment'
         ),
-        allowNull: false
+        allowNull: false,
+        defaultValue: 'system'
     },
     isRead: {
         type: DataTypes.BOOLEAN,

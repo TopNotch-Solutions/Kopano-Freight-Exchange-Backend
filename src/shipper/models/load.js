@@ -36,6 +36,11 @@ const loadModel = sequelize.define('Load', {
         allowNull: true,
         defaultValue: 'open',
     },
+    deliveredAt: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        comment: 'Set when status becomes delivered; channel closes 7 days after this',
+    },
     description: {
         type: DataTypes.TEXT,
         allowNull: true

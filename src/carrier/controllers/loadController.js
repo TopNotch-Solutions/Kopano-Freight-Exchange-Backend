@@ -1,4 +1,6 @@
 const NotificationModel = require("../../common/models/notification");
+const MessageModel = require("../../common/models/message");
+const CarrierModel = require("../../common/models/carrier");
 const { isEmpty } = require("../../common/services/isEmpty");
 const sequelize = require("../../config/database");
 const loadModel = require("../../shipper/models/load");
@@ -134,7 +136,51 @@ exports.acceptLoad = async (req, res) => {
       },
       { transaction },
     );
+    const carrier = await CarrierModel.findByPk(carrierId, { attributes: ["fullName", "profileImage"], transaction });
+    const carrierFullName = carrier?.fullName ?? "A carrier";
+    const channelMessage = `${carrierFullName} has accepted your request. You can now communicate about this load.`;
+    const conversationId = loads.id;
+    console.log("Here is the carrier ID", carrierId);
+    console.log("Here is the loads.shipperId", loads.shipperId);
+    const messageRow = await MessageModel.create(
+      {
+        senderId: Number(carrierId),
+        senderRole: "carrier",
+        receiverId: loads.shipperId,
+        receiverRole: "shipper",
+        message: channelMessage,
+        isRead: false,
+        conversationId,
+      },
+      { transaction },
+    );
     await transaction.commit();
+
+    const io = req.app.get("io");
+    if (io && carrier) {
+      const senderProfile = {
+        senderProfileImage: carrier.profileImage,
+        senderFullName: carrier.fullName,
+      };
+      const data = {
+        id: messageRow.id,
+        conversationId: messageRow.conversationId,
+        senderId: messageRow.senderId,
+        senderRole: messageRow.senderRole,
+        receiverId: messageRow.receiverId,
+        receiverRole: messageRow.receiverRole,
+        message: messageRow.message,
+        createdAt: messageRow.createdAt,
+        ...senderProfile,
+      };
+      const receiverRoom = `shipper_${loads.shipperId}`;
+      const senderRoom = `carrier_${carrierId}`;
+      io.to(receiverRoom).emit("receive-message", data);
+      io.to(senderRoom).emit("receive-message", data);
+      io.to(receiverRoom).emit("chat-list-update");
+      io.to(senderRoom).emit("chat-list-update");
+    }
+
     return res.status(200).json({
         status: "SUCCESS",
         message: "Load accepted successfully",
@@ -278,6 +324,7 @@ exports.deliverLoad = async (req, res) => {
     }
 
     loads.status = "delivered";
+    loads.deliveredAt = new Date();
     await loads.save();
     await deliveryDocumentModel.create(
       {
@@ -435,7 +482,23 @@ exports.loadDeclean = async (req, res) => {
         { transaction },
     );
 
+    const conversationId = loads.id;
+    await MessageModel.destroy({
+        where: { conversationId },
+    }, { transaction });
+
     await transaction.commit();
+
+    const io = req.app.get("io");
+    if (io) {
+        const receiverRoom = `shipper_${loads.shipperId}`;
+        const senderRoom = `carrier_${carrierId}`;
+        io.to(receiverRoom).emit("channel-destroyed", { conversationId, carrierId: Number(carrierId), shipperId: loads.shipperId });
+        io.to(senderRoom).emit("channel-destroyed", { conversationId, carrierId: Number(carrierId), shipperId: loads.shipperId });
+        io.to(receiverRoom).emit("chat-list-update");
+        io.to(senderRoom).emit("chat-list-update");
+    }
+
     return res.status(200).json({
         status: "SUCCESS",
         message: "Load declaened successfully",

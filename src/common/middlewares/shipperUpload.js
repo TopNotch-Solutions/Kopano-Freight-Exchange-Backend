@@ -15,6 +15,9 @@ const upload = multer({ storage });
 module.exports = {
     uploadShipperDocuments: upload.fields([
         { name: 'companyLogo', maxCount: 1 },
-        { name: 'taxRegistrationPDF', maxCount: 1 }
+        { name: 'taxRegistrationPDF', maxCount: 1 },
+        { name: 'businessLicensePDF', maxCount: 1 },
+        { name: 'proofOfBusinessAddressPDF', maxCount: 1 },
+        { name: 'registrationCertificatePDF', maxCount: 1 }
     ])
 };

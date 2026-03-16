@@ -20,6 +20,9 @@ module.exports = {
         { name: 'diskImage', maxCount: 1 },
         { name: 'vehicleFrontImage', maxCount: 1 },
         { name: 'vehicleBackImage', maxCount: 1 },
-        { name: 'vehicleRearImage', maxCount: 1 }
+        { name: 'vehicleRearImage', maxCount: 1 },
+        { name: 'vehicleRegistractionCertificate', maxCount: 1 },
+        { name: 'roadWorthinessCertificate', maxCount: 1 },
+        { name: 'operatingPermit', maxCount: 1 }
     ])
 };

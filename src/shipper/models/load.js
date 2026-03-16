@@ -3,12 +3,12 @@ const sequelize = require('../../config/database')
 
 const loadModel = sequelize.define('Load', {
     id: {
-        type: DataTypes.INTEGER,
-        autoIncrement: true,
+        type: DataTypes.UUID,
+        defaultValue: DataTypes.UUIDV4,
         primaryKey: true
     },
     shipperId: {
-      type: DataTypes.INTEGER,
+     type: DataTypes.UUID,
       allowNull: false,
       references: {
         model: "shippers",

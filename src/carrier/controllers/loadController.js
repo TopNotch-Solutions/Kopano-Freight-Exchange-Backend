@@ -149,7 +149,7 @@ exports.acceptLoad = async (req, res) => {
         receiverId: loads.shipperId,
         receiverRole: "shipper",
         message: channelMessage,
-        isRead: false,
+        isRead: true,
         conversationId,
       },
       { transaction },

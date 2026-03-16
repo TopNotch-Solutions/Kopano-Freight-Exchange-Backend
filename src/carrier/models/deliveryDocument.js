@@ -9,7 +9,7 @@ const deliveryDocumentModel = sequelize.define('DeliveryDocument', {
         primaryKey: true
     },
     loadId: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.UUID,
       allowNull: false,
       references: {
         model: loadModel,

@@ -5,12 +5,12 @@ const MessageModel = sequelize.define(
   'Message',
   {
     id: {
-      type: DataTypes.INTEGER,
-      autoIncrement: true,
+      type: DataTypes.UUID,
+  defaultValue: DataTypes.UUIDV4,
       primaryKey: true,
     },
     senderId: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.UUID,
       allowNull: false,
     },
     senderRole: {
@@ -18,7 +18,7 @@ const MessageModel = sequelize.define(
       allowNull: false,
     },
     receiverId: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.UUID,
       allowNull: false,
     },
     receiverRole: {
@@ -34,7 +34,7 @@ const MessageModel = sequelize.define(
       defaultValue: false,
     },
     conversationId: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.UUID,
       allowNull: true,
       comment: 'Load ID when channel was created; one conversation per accepted load',
     },

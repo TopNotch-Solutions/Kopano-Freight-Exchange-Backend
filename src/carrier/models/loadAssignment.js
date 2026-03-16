@@ -4,12 +4,12 @@ const loadModel = require('../../shipper/models/load')
 
 const loadAssignmentModel = sequelize.define('LoadAssignment', {
     id: {
-        type: DataTypes.INTEGER,
-        autoIncrement: true,
+        type: DataTypes.UUID,
+        defaultValue: DataTypes.UUIDV4,
         primaryKey: true
     },
     loadId: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.UUID,
       allowNull: false,
       references: {
         model: "loads",

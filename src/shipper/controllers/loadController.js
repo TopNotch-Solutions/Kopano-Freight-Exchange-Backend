@@ -1,10 +1,12 @@
-const { Op } = require("sequelize");
+const { Op, where } = require("sequelize");
 const sequelize = require("../../config/database");
 const loadModel = require("../models/load");
 const shipperModel = require("../../common/models/shipper");
 const { isEmpty } = require("../../common/services/isEmpty");
 const fs = require("fs");
 const path = require("path");
+const loadAssignmentModel = require("../../carrier/models/loadAssignment");
+const NotificationModel = require("../../common/models/notification");
 
 exports.create = async (req, res) => {
   const { shipperId } = req.params;
@@ -163,6 +165,98 @@ exports.create = async (req, res) => {
       status: "FAILED",
       message:
         "We are unable to process your request at the moment. Please try again.",
+      error: error.message,
+    });
+  }
+};
+
+exports.cancelLoad = async (req, res) => {
+  const { loadId } = req.params;
+
+  if (!loadId || isEmpty(loadId)) {
+    return res.status(400).json({
+      status: "FAILED",
+      message: "A valid load ID is required to proceed.",
+    });
+  }
+
+  const transaction = await sequelize.transaction();
+
+  try {
+    const load = await loadModel.findOne({
+      where: { id: loadId },
+      transaction,
+    });
+
+    if (!load) {
+      await transaction.rollback();
+      return res.status(404).json({
+        status: "FAILED",
+        message: "The requested load could not be found.",
+      });
+    }
+
+    if (load.status === "in_transit" || load.status === "delivered") {
+      await transaction.rollback();
+      return res.status(400).json({
+        status: "FAILED",
+        message: `This load is currently marked as ${load.status} and cannot be cancelled.`,
+      });
+    }
+
+    const assignment = await loadAssignmentModel.findOne({
+      where: { loadId },
+      transaction,
+    });
+
+    const previousStatus = load.status;
+
+    load.status = "cancelled";
+    await load.save({ transaction });
+
+    if (previousStatus === "open") {
+      await NotificationModel.create(
+        {
+          userId: load.shipperId,
+          userType: "shipper",
+          title: "Load Cancelled Successfully",
+          message:
+            "Your load has been cancelled successfully. It is no longer visible to carriers.",
+          type: "system",
+        },
+        { transaction }
+      );
+    }
+
+    if (previousStatus === "assigned" && assignment) {
+      await NotificationModel.create(
+        {
+          userId: assignment.carrierId,
+          userType: "carrier",
+          title: "Assigned Load Cancelled",
+          message:
+            "The shipper has cancelled the load that was previously assigned to you.",
+          type: "system",
+        },
+        { transaction }
+      );
+    }
+
+    await transaction.commit();
+
+    return res.status(200).json({
+      status: "SUCCESS",
+      message: "The load has been cancelled successfully.",
+    });
+  } catch (error) {
+    await transaction.rollback();
+
+    console.error("Error cancelling load:", error);
+
+    return res.status(500).json({
+      status: "FAILED",
+      message:
+        "An unexpected error occurred while attempting to cancel the load. Please try again later.",
       error: error.message,
     });
   }

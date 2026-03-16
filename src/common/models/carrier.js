@@ -1,5 +1,6 @@
 const {DataTypes} = require('sequelize')
 const sequelize = require('../../config/database')
+const { tr } = require('date-fns/locale')
 
 const userModel = sequelize.define('Carrier', {
     id: {
@@ -16,8 +17,26 @@ const userModel = sequelize.define('Carrier', {
         allowNull: false,
         unique: true
     },
-    password: {
+    nationalID: {
         type: DataTypes.STRING,
+        allowNull: false,
+        unique: true
+    },
+        dateOfBirth: {
+        type: DataTypes.DATE,
+        allowNull: false
+    },
+    residentailAddress: {
+        type: DataTypes.STRING,
+        allowNull: false
+    },
+    licenseNumber: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        unique: true
+    },
+     licenseExpiryDate: {
+        type: DataTypes.DATE,
         allowNull: false
     },
     profileImage: {
@@ -30,6 +49,40 @@ const userModel = sequelize.define('Carrier', {
     },
     drivingLicenseBack: {
         type: DataTypes.STRING,
+        allowNull: true
+    },
+    vehicleRegistrationNumber: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        unique: true
+    },
+     VINNumber: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        unique: true
+    },
+    truckType: {
+        type: DataTypes.STRING,
+        allowNull: false
+    },
+    trailerType: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    loadCapacity: {
+        type: DataTypes.DECIMAL(10, 2),
+            allowNull: false
+    },
+    vehicleRegistractionCertificate: {
+         type: DataTypes.STRING,
+        allowNull: true
+    },
+    roadWorthinessCertificate: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    operatingPermit: {
+         type: DataTypes.STRING,
         allowNull: true
     },
     diskImage: {

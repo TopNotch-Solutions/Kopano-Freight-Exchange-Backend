@@ -1,5 +1,5 @@
 const express = require('express');
-const { create, allUserLoads, allUserLoadsActive, allUserLoadsCompleted, allUserLoadsPending } = require('../controllers/loadController');
+const { create, allUserLoads, allUserLoadsActive, allUserLoadsCompleted, allUserLoadsPending, cancelLoad } = require('../controllers/loadController');
 const { loadUploadDocuments } = require('../middlewares/loadUpload');
 const router = express.Router();
 
@@ -8,5 +8,6 @@ router.get("/user-loads/:shipperId", allUserLoads)
 router.get("/user-loads-active/:shipperId", allUserLoadsActive)
 router.get("/user-loads-pending/:shipperId", allUserLoadsPending)
 router.get("/user-loads-completed/:shipperId", allUserLoadsCompleted)
+router.patch("/loads/:loadId/cancel", cancelLoad);
 
 module.exports = router;

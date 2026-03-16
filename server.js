@@ -44,7 +44,7 @@ async function getSenderProfile(senderId, senderRole) {
 
 /** Returns true if the conversation channel is still open (not delivered, or delivered within CHANNEL_OPEN_DAYS_AFTER_DELIVERY). */
 async function isChannelOpen(conversationId) {
-  const load = await LoadModel.findByPk(Number(conversationId), { attributes: ["id", "status", "deliveredAt"] });
+  const load = await LoadModel.findByPk(conversationId, { attributes: ["id", "status", "deliveredAt"] });
   if (!load) return true;
   if (load.status !== "delivered") return true;
   if (!load.deliveredAt) return false;
@@ -136,7 +136,7 @@ io.on("connection", (socket) => {
     try {
       const open = await isChannelOpen(conversationId);
       if (!open) {
-        socket.emit("channel-closed", { conversationId: Number(conversationId) });
+        socket.emit("channel-closed", { conversationId: conversationId });
         return;
       }
       const row = await MessageModel.create({
@@ -146,7 +146,7 @@ io.on("connection", (socket) => {
         receiverRole,
         message: String(message),
         isRead: false,
-        conversationId: Number(conversationId),
+        conversationId: conversationId,
       });
       const senderProfile = await getSenderProfile(row.senderId, row.senderRole);
       const data = {
@@ -231,10 +231,10 @@ io.on("connection", (socket) => {
     try {
       const open = await isChannelOpen(conversationId);
       if (!open) {
-        socket.emit("channel-closed", { conversationId: Number(conversationId) });
+        socket.emit("channel-closed", { conversationId: conversationId});
       }
       const messages = await MessageModel.findAll({
-        where: { conversationId: Number(conversationId) },
+        where: { conversationId: conversationId },
         order: [["createdAt", "ASC"]],
         limit: 100,
         attributes: ["id", "conversationId", "senderId", "senderRole", "receiverId", "receiverRole", "message", "createdAt"],
@@ -302,7 +302,7 @@ io.on("connection", (socket) => {
         if (!conversationMap.has(cid)) {
           conversationMap.set(cid, {
             conversationId: cid,
-            otherUserId: role === "carrier" ? m.receiverId : m.senderId,
+            otherUserId: m.senderId === userId ? m.receiverId : m.senderId,
             otherRole: role === "carrier" ? "shipper" : "carrier",
             lastMessage: m.message,
             lastMessageTime: m.createdAt,
@@ -314,7 +314,7 @@ io.on("connection", (socket) => {
         }
       }
       const unreadCounts = await MessageModel.findAll({
-        where: { receiverId: userId, isRead: false, conversationId: { [Op.ne]: null } },
+        where: { receiverId: userId,  isRead: false, conversationId: { [Op.ne]: null } },
         attributes: ["conversationId", [sequelize.fn("COUNT", sequelize.col("id")), "count"]],
         group: ["conversationId"],
         raw: true,
@@ -372,6 +372,7 @@ io.on("connection", (socket) => {
         });
       }
       chatList.sort((a, b) => new Date(b.lastMessageTime) - new Date(a.lastMessageTime));
+      console.log("Chat list", chatList)
       socket.emit("chat-list", chatList);
     } catch (err) {
       console.error("get-chats error:", err);
@@ -389,7 +390,7 @@ io.on("connection", (socket) => {
         {
           where: {
             receiverId: userId,
-            conversationId: Number(conversationId),
+            conversationId: conversationId,
           },
         }
       );
@@ -406,9 +407,9 @@ io.on("connection", (socket) => {
       return;
     }
     try {
-      const load = await LoadModel.findByPk(Number(conversationId), { attributes: ["id", "shipperId"] });
+      const load = await LoadModel.findByPk(conversationId, { attributes: ["id", "shipperId"] });
       const assignment = await LoadAssignmentModel.findOne({
-        where: { loadId: Number(conversationId) },
+        where: { loadId: conversationId },
         attributes: ["carrierId"],
       });
       const onlineList = [];
@@ -422,7 +423,7 @@ io.on("connection", (socket) => {
           onlineList.push({ userId: load.shipperId, role: "shipper" });
         }
       }
-      socket.emit("conversation-online-users", { conversationId: Number(conversationId), onlineUsers: onlineList });
+      socket.emit("conversation-online-users", { conversationId: conversationId, onlineUsers: onlineList });
     } catch (err) {
       console.error("get-conversation-online-users error:", err);
     }
@@ -437,6 +438,7 @@ io.on("connection", (socket) => {
       const total = await MessageModel.count({
         where: { receiverId: userId, isRead: false },
       });
+      console.log("Total unread", total)
       socket.emit("unread-total", { total });
     } catch (err) {
       console.error("get-unread-total error:", err);

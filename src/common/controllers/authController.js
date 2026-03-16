@@ -10,6 +10,7 @@ const fs = require("fs");
 const path = require("path");
 const shipperModel = require("../models/shipper");
 const NotificationModel = require("../models/notification");
+const { da } = require("date-fns/locale");
 
 exports.generateOtp = async (req, res) => {
   const { number } = req.body;
@@ -189,8 +190,22 @@ exports.validateOtp = async (req, res) => {
 };
 
 exports.registerCarrier = async (req, res) => {
-  const { fullName, email, password, cellPhoneNumber, diskExpiryDate } =
-    req.body;
+  const {
+    fullName,
+    email,
+    cellPhoneNumber,
+    diskExpiryDate,
+    nationalID,
+    residentailAddress,
+    licenseNumber,
+    licenseExpiryDate,
+    vehicleRegistrationNumber,
+    VINNumber,
+    truckType,
+    dateOfBirth,
+    trailerType,
+    loadCapacity,
+  } = req.body;
   const files = req.files;
   let profileImage = files.profileImage ? files.profileImage[0].filename : null;
 
@@ -215,6 +230,16 @@ exports.registerCarrier = async (req, res) => {
   let vehicleRearImage = files.vehicleRearImage
     ? files.vehicleRearImage[0].filename
     : null;
+
+  let roadWorthinessCertificate = files.roadWorthinessCertificate
+    ? files.roadWorthinessCertificate[0].filename
+    : null;
+  let operatingPermit = files.operatingPermit
+    ? files.operatingPermit[0].filename
+    : null;
+  let vehicleRegistractionCertificate = files.vehicleRegistractionCertificate
+    ? files.vehicleRegistractionCertificate[0].filename
+    : null;
   if (!fullName || isEmpty(fullName)) {
     return res.status(400).json({
       status: "FAILED",
@@ -233,10 +258,110 @@ exports.registerCarrier = async (req, res) => {
       message: "Oops! We need your email to proceed.",
     });
   }
-  if (!password || isEmpty(password)) {
+
+  if (!isValidCellphoneNumber(cellPhoneNumber)) {
     return res.status(400).json({
       status: "FAILED",
-      message: "Oops! We need your password to proceed.",
+      message: "Invalid cellphone number. Please check and re-enter.",
+    });
+  }
+  if (!diskExpiryDate || isEmpty(diskExpiryDate)) {
+    return res.status(400).json({
+      status: "FAILED",
+      message: "Oops! We need your disk expiry date to proceed.",
+    });
+  }
+
+  if (profileImage && isEmpty(profileImage)) {
+    return res.status(400).json({
+      status: "FAILED",
+      message: "Provided profile image is invalid.",
+    });
+  }
+  if (nationalID && isEmpty(nationalID)) {
+    return res.status(400).json({
+      status: "FAILED",
+      message: "Provided national ID is invalid.",
+    });
+  }
+  if (dateOfBirth && isEmpty(dateOfBirth)) {
+    return res.status(400).json({
+      status: "FAILED",
+      message: "Provided date of birth is invalid.",
+    });
+  }
+  if (residentailAddress && isEmpty(residentailAddress)) {
+    return res.status(400).json({
+      status: "FAILED",
+      message: "Provided residential address is invalid.",
+    });
+  }
+
+  if (licenseNumber && isEmpty(licenseNumber)) {
+    return res.status(400).json({
+      status: "FAILED",
+      message: "Provided license number is invalid.",
+    });
+  }
+  if (licenseExpiryDate && isEmpty(licenseExpiryDate)) {
+    return res.status(400).json({
+      status: "FAILED",
+      message: "Provided license expiry date is invalid.",
+    });
+  }
+  if (vehicleRegistrationNumber && isEmpty(vehicleRegistrationNumber)) {
+    return res.status(400).json({
+      status: "FAILED",
+      message: "Provided vehicle registration number is invalid.",
+    });
+  }
+
+  if (VINNumber && isEmpty(VINNumber)) {
+    return res.status(400).json({
+      status: "FAILED",
+      message: "Provided VIN number is invalid.",
+    });
+  }
+
+  if (truckType && isEmpty(truckType)) {
+    return res.status(400).json({
+      status: "FAILED",
+      message: "Provided truck type is invalid.",
+    });
+  }
+
+  if (trailerType && isEmpty(trailerType)) {
+    return res.status(400).json({
+      status: "FAILED",
+      message: "Provided trailer type is invalid.",
+    });
+  }
+
+  if (loadCapacity && isEmpty(loadCapacity)) {
+    return res.status(400).json({
+      status: "FAILED",
+      message: "Provided load capacity is invalid.",
+    });
+  }
+
+  if(vehicleRegistractionCertificate && isEmpty(vehicleRegistractionCertificate)){
+    return res.status(400).json({
+      status: "FAILED",
+      message: "Provided vehicle registration certificate is invalid.",
+    });
+  }
+
+  if(roadWorthinessCertificate && isEmpty(roadWorthinessCertificate)){
+    return res.status(400).json({
+      status: "FAILED",
+      message: "Provided road worthiness certificate is invalid.",
+    });
+  }
+
+  if(operatingPermit && isEmpty(operatingPermit)){
+    return res.status(400).json({
+      status: "FAILED",
+      message: "Provided operating permit is invalid.",
     });
   }
   const filesToCleanup = [];
@@ -283,14 +408,10 @@ exports.registerCarrier = async (req, res) => {
       });
     }
 
-    const salt = await bcrypt.genSalt(12);
-    const hashedPassword = await bcrypt.hash(password, salt);
-
     const newUser = await userModel.create(
       {
         fullName,
         email,
-        password: hashedPassword,
         cellPhoneNumber,
         VerifiedCellPhoneNumber: cellPhoneNumber,
         profileImage,
@@ -301,6 +422,21 @@ exports.registerCarrier = async (req, res) => {
         vehicleBackImage,
         vehicleRearImage,
         isCellphoneNumberVerified: true,
+        nationalID,
+        residentailAddress,
+        licenseNumber,
+        licenseExpiryDate,
+        vehicleRegistrationNumber,
+        VINNumber,
+        truckType,
+        trailerType,
+        loadCapacity,
+        operatingPermit,
+        vehicleRegistractionCertificate,
+        roadWorthinessCertificate,
+        isAccountVerified: true,
+        licenseExpiryDate,
+        dateOfBirth,
         diskExpiryDate,
         role: "carrier",
       },
@@ -419,7 +555,7 @@ exports.updateCarrierDetails = async (req, res) => {
         email,
         cellPhoneNumber,
         diskExpiryDate,
-        isAccountVerified: false
+        isAccountVerified: false,
       },
       {
         where: { id },
@@ -477,13 +613,13 @@ exports.updateCarrierFiles = async (req, res) => {
     }
 
     const fileFields = [
-      'profileImage',
-      'drivingLicenseFront',
-      'drivingLicenseBack',
-      'diskImage',
-      'vehicleFrontImage',
-      'vehicleBackImage',
-      'vehicleRearImage'
+      "profileImage",
+      "drivingLicenseFront",
+      "drivingLicenseBack",
+      "diskImage",
+      "vehicleFrontImage",
+      "vehicleBackImage",
+      "vehicleRearImage",
     ];
 
     const updateData = {};
@@ -493,9 +629,14 @@ exports.updateCarrierFiles = async (req, res) => {
         const newFile = files[field][0].filename;
 
         if (user[field]) {
-          const oldFilePath = path.join('uploads/registration', user[field]);
+          const oldFilePath = path.join("uploads/registration", user[field]);
           fs.unlink(oldFilePath, (err) => {
-            if (err) console.warn("Failed to delete old file:", oldFilePath, err.message);
+            if (err)
+              console.warn(
+                "Failed to delete old file:",
+                oldFilePath,
+                err.message,
+              );
           });
         }
         updateData[field] = newFile;
@@ -514,17 +655,20 @@ exports.updateCarrierFiles = async (req, res) => {
       where: { id },
       transaction,
     });
-    await userModel.update({
-      isAccountVerified: false
-    }, {
-      where: { id },
-      transaction,
-    });
+    await userModel.update(
+      {
+        isAccountVerified: false,
+      },
+      {
+        where: { id },
+        transaction,
+      },
+    );
 
     await transaction.commit();
 
     const updatedUser = await userModel.findByPk(id, {
-      attributes: { exclude: ['password'] },
+      attributes: { exclude: ["password"] },
     });
 
     res.status(200).json({
@@ -538,7 +682,8 @@ exports.updateCarrierFiles = async (req, res) => {
 
     res.status(500).json({
       status: "FAILED",
-      message: "We are unable to process your request at the moment. Please try again.",
+      message:
+        "We are unable to process your request at the moment. Please try again.",
       error: error.message,
     });
   }
@@ -550,9 +695,16 @@ exports.registerShipper = async (req, res) => {
     registrationNumber,
     dateOfIncorporation,
     entity,
-    password,
     cellPhoneNumber,
     industry,
+    fullName,
+    email,
+    country,
+    state,
+    city,
+    businessAddress,
+    postalCode,
+    websiteURL,
   } = req.body;
   const files = req.files || {};
 
@@ -564,6 +716,19 @@ exports.registerShipper = async (req, res) => {
   let taxRegistrationPDF =
     files.taxRegistrationPDF && files.taxRegistrationPDF[0]
       ? files.taxRegistrationPDF[0].filename
+      : null;
+
+  let registrationCertificatePDF =
+    files.registrationCertificatePDF && files.registrationCertificatePDF[0]
+      ? files.registrationCertificatePDF[0].filename
+      : null;
+  let businessLicensePDF =
+    files.businessLicensePDF && files.businessLicensePDF[0]
+      ? files.businessLicensePDF[0].filename
+      : null;
+  let proofOfAddressPDF =
+    files.proofOfAddressPDF && files.proofOfAddressPDF[0]
+      ? files.proofOfAddressPDF[0].filename
       : null;
   if (!businessName || isEmpty(businessName)) {
     return res.status(400).json({
@@ -589,16 +754,85 @@ exports.registerShipper = async (req, res) => {
       message: "Oops! We need your entity to proceed.",
     });
   }
-  if (!password || isEmpty(password)) {
-    return res.status(400).json({
-      status: "FAILED",
-      message: "Oops! We need your password to proceed.",
-    });
-  }
+
   if (!industry || isEmpty(industry)) {
     return res.status(400).json({
       status: "FAILED",
       message: "Oops! We need your industry to proceed.",
+    });
+  }
+  if (!cellPhoneNumber || isEmpty(cellPhoneNumber)) {
+    return res.status(400).json({
+      status: "FAILED",
+      message: "Oops! We need your cellphone number to proceed.",
+    });
+  }
+  if (!isValidCellphoneNumber(cellPhoneNumber)) {
+    return res.status(400).json({
+      status: "FAILED",
+      message: "Invalid cellphone number format.",
+    });
+  }
+
+  if (!fullName || isEmpty(fullName)) {
+    return res.status(400).json({
+      status: "FAILED",
+      message: "Oops! We need your full name to proceed.",
+    });
+  }
+  if (!email || isEmpty(email)) {
+    return res.status(400).json({
+      status: "FAILED",
+      message: "Oops! We need your email to proceed.",
+    });
+  }
+  if (!country || isEmpty(country)) {
+    return res.status(400).json({
+      status: "FAILED",
+      message: "Oops! We need your country to proceed.",
+    });
+  }
+  if (!state || isEmpty(state)) {
+    return res.status(400).json({
+      status: "FAILED",
+      message: "Oops! We need your state to proceed.",
+    });
+  }
+  if (!city || isEmpty(city)) {
+    return res.status(400).json({
+      status: "FAILED",
+      message: "Oops! We need your city to proceed.",
+    });
+  }
+  if (!businessAddress || isEmpty(businessAddress)) {
+    return res.status(400).json({
+      status: "FAILED",
+      message: "Oops! We need your business address to proceed.",
+    });
+  }
+  if (!postalCode || isEmpty(postalCode)) {
+    return res.status(400).json({
+      status: "FAILED",
+      message: "Oops! We need your postal code to proceed.",
+    });
+  }
+
+  if (registrationCertificatePDF && isEmpty(registrationCertificatePDF)) {
+    return res.status(400).json({
+      status: "FAILED",
+      message: "Provided registration certificate file is invalid.",
+    });
+  }
+  if (businessLicensePDF && isEmpty(businessLicensePDF)) {
+    return res.status(400).json({
+      status: "FAILED",
+      message: "Provided business license file is invalid.",
+    });
+  }
+  if (proofOfAddressPDF && isEmpty(proofOfAddressPDF)) {
+    return res.status(400).json({
+      status: "FAILED",
+      message: "Provided proof of address file is invalid.",
     });
   }
   const filesToCleanup = [];
@@ -636,15 +870,12 @@ exports.registerShipper = async (req, res) => {
       });
     }
 
-    const salt = await bcrypt.genSalt(12);
-    const hashedPassword = await bcrypt.hash(password, salt);
     const newUser = await shipperModel.create(
       {
         businessName,
         registrationNumber,
         dateOfIncorporation,
         entity,
-        password: hashedPassword,
         cellPhoneNumber,
         VerifiedCellPhoneNumber: cellPhoneNumber,
         companyLogo,
@@ -652,6 +883,18 @@ exports.registerShipper = async (req, res) => {
         taxRegistrationPDF,
         isCellphoneNumberVerified: true,
         role: "shipper",
+        fullName,
+        email,
+        country,
+        state,
+        city,
+        businessAddress,
+        postalCode,
+        websiteURL: websiteURL || null,
+        registrationCertificatePDF,
+        businessLicensePDF,
+        isAccountVerified: true,
+        proofOfAddressPDF,
       },
       { transaction },
     );
@@ -751,23 +994,31 @@ exports.updateShipperDetails = async (req, res) => {
       });
     }
 
-    const duplicateConditions = [
-    ];
+    const duplicateConditions = [];
 
     if (cellPhoneNumber !== shipper.cellPhoneNumber) {
       console.log("Checking for duplicate cellphone number:", cellPhoneNumber);
       duplicateConditions.push(
         { cellPhoneNumber },
-        { VerifiedCellPhoneNumber: cellPhoneNumber }
+        { VerifiedCellPhoneNumber: cellPhoneNumber },
       );
-      console.log("Duplicate conditions for cellphone number:", duplicateConditions);
+      console.log(
+        "Duplicate conditions for cellphone number:",
+        duplicateConditions,
+      );
     }
 
-    if(registrationNumber !== shipper.registrationNumber) {
-      console.log("Checking for duplicate registration number:", registrationNumber);
+    if (registrationNumber !== shipper.registrationNumber) {
+      console.log(
+        "Checking for duplicate registration number:",
+        registrationNumber,
+      );
       duplicateConditions.push({ registrationNumber });
-      console.log("Duplicate conditions for registration number:", duplicateConditions);
-      }
+      console.log(
+        "Duplicate conditions for registration number:",
+        duplicateConditions,
+      );
+    }
 
     const existingUser = await shipperModel.findOne({
       where: {
@@ -796,9 +1047,9 @@ exports.updateShipperDetails = async (req, res) => {
         cellPhoneNumber,
         VerifiedCellPhoneNumber: cellPhoneNumber,
         industry,
-        isAccountVerified: false
+        isAccountVerified: false,
       },
-      { where: { id }, transaction }
+      { where: { id }, transaction },
     );
 
     await transaction.commit();
@@ -864,9 +1115,17 @@ exports.updateShipperFiles = async (req, res) => {
       const newLogo = files.companyLogo[0].filename;
 
       if (shipper.companyLogo) {
-        const oldLogoPath = path.join('uploads/registration', shipper.companyLogo);
+        const oldLogoPath = path.join(
+          "uploads/registration",
+          shipper.companyLogo,
+        );
         fs.unlink(oldLogoPath, (err) => {
-          if (err) console.warn("Failed to delete old company logo:", oldLogoPath, err.message);
+          if (err)
+            console.warn(
+              "Failed to delete old company logo:",
+              oldLogoPath,
+              err.message,
+            );
         });
       }
 
@@ -878,9 +1137,17 @@ exports.updateShipperFiles = async (req, res) => {
       const newPDF = files.taxRegistrationPDF[0].filename;
 
       if (shipper.taxRegistrationPDF) {
-        const oldPDFPath = path.join('uploads/registration', shipper.taxRegistrationPDF);
+        const oldPDFPath = path.join(
+          "uploads/registration",
+          shipper.taxRegistrationPDF,
+        );
         fs.unlink(oldPDFPath, (err) => {
-          if (err) console.warn("Failed to delete old tax registration PDF:", oldPDFPath, err.message);
+          if (err)
+            console.warn(
+              "Failed to delete old tax registration PDF:",
+              oldPDFPath,
+              err.message,
+            );
         });
       }
 
@@ -892,12 +1159,15 @@ exports.updateShipperFiles = async (req, res) => {
       where: { id },
       transaction,
     });
-    await shipperModel.update({
-      isAccountVerified: false
-    }, {
-      where: { id },
-      transaction,
-    });
+    await shipperModel.update(
+      {
+        isAccountVerified: false,
+      },
+      {
+        where: { id },
+        transaction,
+      },
+    );
 
     await transaction.commit();
     await NotificationModel.create({
@@ -910,7 +1180,7 @@ exports.updateShipperFiles = async (req, res) => {
     });
 
     const updatedShipper = await shipperModel.findByPk(id, {
-      attributes: { exclude: ['password'] },
+      attributes: { exclude: ["password"] },
     });
 
     res.status(200).json({

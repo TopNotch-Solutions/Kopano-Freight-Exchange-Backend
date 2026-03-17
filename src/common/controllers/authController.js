@@ -149,7 +149,7 @@ exports.validateOtp = async (req, res) => {
         existingUser: true,
         message: "OTP verified successfully. Welcome back!",
         data: {
-          user: { ...user.toJSON(), password: undefined },
+          user,
         },
       });
     }
@@ -166,7 +166,7 @@ exports.validateOtp = async (req, res) => {
         existingUser: true,
         message: "OTP verified successfully. Welcome back!",
         data: {
-          user: { ...shipper.toJSON(), password: undefined },
+          user,
         },
       });
     }

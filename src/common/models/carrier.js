@@ -4,10 +4,10 @@ const { tr } = require('date-fns/locale')
 
 const userModel = sequelize.define('Carrier', {
     id: {
-        type: DataTypes.INTEGER,
-        autoIncrement: true,
-        primaryKey: true
-    },
+  type: DataTypes.UUID,
+  defaultValue: DataTypes.UUIDV4,
+  primaryKey: true,
+},
     fullName: {
         type: DataTypes.STRING,
         allowNull: false

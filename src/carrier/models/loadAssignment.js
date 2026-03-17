@@ -17,7 +17,7 @@ const loadAssignmentModel = sequelize.define('LoadAssignment', {
       },
     },
     carrierId: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.UUID,
       allowNull: false,
       references: {
         model: "carriers",
